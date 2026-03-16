@@ -143,7 +143,6 @@ public class GameEngine {
             type.mass,
             type.dragCoefficient,
             type.crossSectionalArea,
-            isNuke
         );
     }
     
