@@ -35,7 +35,7 @@ public class Projectile {
      * @param radius Radius of the projectile (pixels)
      */
     public Projectile(double x, double y, double vx, double vy,
-                     double mass, double dragCoefficientK, double radius) {
+                      double mass, double dragCoefficientK, double radius) {
         this.x = x;
         this.y = y;
         this.vx = vx;
