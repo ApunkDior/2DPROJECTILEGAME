@@ -20,6 +20,7 @@ public class Projectile {
 
     // State
     private boolean isActive;
+    private boolean isNuke; // whether this projectile is a nuke
 
     // Constants
     private static final double GRAVITY = 9.81; // m/s^2
@@ -46,6 +47,7 @@ public class Projectile {
         this.ax = 0.0;
         this.ay = 0.0;
         this.isActive = true;
+        this.isNuke = false;
     }
 
     /**
@@ -110,6 +112,10 @@ public class Projectile {
         this.isActive = false;
     }
 
+    // Nuke flag getter/setter
+    public boolean isNuke() { return isNuke; }
+    public void setNuke(boolean nuke) { this.isNuke = nuke; }
+
     // Getters and Setters
 
     public double getX() { return x; }
@@ -142,4 +148,3 @@ public class Projectile {
     public boolean isActive() { return isActive; }
     public void setActive(boolean active) { isActive = active; }
 }
-

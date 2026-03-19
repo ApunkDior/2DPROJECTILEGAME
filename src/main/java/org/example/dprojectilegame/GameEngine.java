@@ -135,15 +135,23 @@ public class GameEngine {
                               DEFAULT_PROJECTILE.crossSectionalArea, DEFAULT_PROJECTILE.radius * 2,
                               DEFAULT_PROJECTILE.initialSpeed) : DEFAULT_PROJECTILE;
         
+        // Compute quadratic drag constant k from the drag equation: F = 0.5 * rho * C_d * A * v^2
+        // Projectile expects dragCoefficientK where F_drag = k * v^2, so k = 0.5 * rho * C_d * A
+        double airDensity = 1.225; // kg/m^3 (sea level standard)
+        double dragCoefficientK = 0.5 * airDensity * type.dragCoefficient * type.crossSectionalArea;
+
         activeProjectile = new Projectile(
             tank.getCannonTipX(),
             tank.getCannonTipY(),
             vx, vy,
-            type.radius,
             type.mass,
-            type.dragCoefficient,
-            type.crossSectionalArea,
+            dragCoefficientK,
+            type.radius
         );
+        // Mark as nuke if applicable
+        if (isNuke) {
+            activeProjectile.setNuke(true);
+        }
     }
     
     /**
