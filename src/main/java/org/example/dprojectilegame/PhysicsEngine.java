@@ -23,15 +23,37 @@ public class PhysicsEngine {
 
     public void updateProjectile(Projectile p, double deltaTime) {
         if (!p.isActive()) return;
-        
-        // Apply gravity and air resistance to vertical velocity
-        applyGravity(p, deltaTime);
-        
-        // Apply wind and air resistance to horizontal velocity
-        applyWind(p, deltaTime);
-        
-        // Update position based on velocity
-        p.updatePosition(deltaTime);
+
+        // Read current state
+        double k = p.getDragCoefficientK();
+        double m = p.getMass();
+        double vx = p.getVx();
+        double vy = p.getVy();
+
+        // Compute accelerations (y increases downward)
+        // Vertical acceleration: gravity downward minus drag opposing motion
+        double ay = gravity - (k / m) * vy * Math.abs(vy);
+
+        // Horizontal acceleration: drag opposing motion plus wind/m
+        double ax = -(k / m) * vx * Math.abs(vx) + (wind / m);
+
+        // Update position using kinematics with the current velocity and computed acceleration
+        // x = x + vx * dt + 0.5 * ax * dt^2
+        // y = y + vy * dt + 0.5 * ay * dt^2
+        double newX = p.getX() + vx * deltaTime + 0.5 * ax * deltaTime * deltaTime;
+        double newY = p.getY() + vy * deltaTime + 0.5 * ay * deltaTime * deltaTime;
+
+        // Update velocities using v = v + a * dt
+        double newVx = vx + ax * deltaTime;
+        double newVy = vy + ay * deltaTime;
+
+        // Apply updated values to projectile
+        p.setAx(ax);
+        p.setAy(ay);
+        p.setVx(newVx);
+        p.setVy(newVy);
+        p.setX(newX);
+        p.setY(newY);
     }
     
 
@@ -41,9 +63,10 @@ public class PhysicsEngine {
         double vy = p.getVy();
         
         // Calculate vertical acceleration
-        // ay = -g - (k/m) * vy * |vy|
-        double ay = -gravity - (k / m) * vy * Math.abs(vy);
-        
+        // Correct sign convention: y increases downward, so gravity is positive downward.
+        // Drag acceleration opposes motion: a_drag = -(k/m) * vy * |vy|
+        double ay = gravity - (k / m) * vy * Math.abs(vy);
+
         // Update vertical velocity: vy = vy + ay * Δt
         double newVy = vy + ay * deltaTime;
         p.setVy(newVy);

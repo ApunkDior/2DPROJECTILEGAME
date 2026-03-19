@@ -5,7 +5,6 @@ import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.control.Label;
-import javafx.scene.control.Slider;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -20,7 +19,10 @@ public class GameApp extends Application {
     private static final double WINDOW_HEIGHT = 800;
     private static final double CANVAS_WIDTH = 1200;
     private static final double CANVAS_HEIGHT = 700;
-    
+    // Constant game parameters (replace sliders)
+    private static final double DEFAULT_WIND = 0.0;   // constant wind force
+    private static final double DEFAULT_POWER = 50.0; // constant tank power
+
     @Override
     public void start(Stage primaryStage) {
         this.stage = primaryStage;
@@ -31,13 +33,16 @@ public class GameApp extends Application {
         
         // Create game engine
         GameEngine gameEngine = new GameEngine(renderer);
-        
+        // Apply constant parameters
+        gameEngine.setWind(DEFAULT_WIND);
+        gameEngine.setPowerForAll(DEFAULT_POWER);
+
         // Create main layout
         BorderPane root = new BorderPane();
         root.setCenter(canvas);
         
         // Create side panel with controls
-        VBox sidePanel = createSidePanel(gameEngine);
+        VBox sidePanel = createSidePanel();
         root.setRight(sidePanel);
         
         // Create scene
@@ -55,63 +60,22 @@ public class GameApp extends Application {
         stage.setResizable(false);
         stage.show();
     }
-    
-    private VBox createSidePanel(GameEngine gameEngine) {
-        VBox sidePanel = new VBox(20);
-        sidePanel.setPadding(new Insets(20));
-        sidePanel.setStyle("-fx-background-color: #2b2b2b;");
-        sidePanel.setPrefWidth(200);
-        
-        // Power slider
-        Label powerLabel = new Label("Power:");
-        powerLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px;");
-        Slider powerSlider = new Slider(10, 100, 50);
-        powerSlider.setShowTickLabels(true);
-        powerSlider.setShowTickMarks(true);
-        powerSlider.setMajorTickUnit(25);
-        powerSlider.setMinorTickCount(5);
-        powerSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
-            // Update current player's tank power
-            if (gameEngine.getCurrentPlayer() != null) {
-                gameEngine.getCurrentPlayer().getTank().setPower(newVal.doubleValue());
-            }
-        });
-        
-        // Wind slider
-        Label windLabel = new Label("Wind Force:");
-        windLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px;");
-        Slider windSlider = new Slider(-50, 50, 0);
-        windSlider.setShowTickLabels(true);
-        windSlider.setShowTickMarks(true);
-        windSlider.setMajorTickUnit(25);
-        windSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
-            gameEngine.setWind(newVal.doubleValue());
-        });
-        
-        // Instructions
-        Label instructionsLabel = new Label("Controls:\n\n" +
-                "Left Tank:\n" +
-                "A/D - Move\n" +
-                "W/S - Angle\n" +
-                "Space - Fire\n" +
-                "Shift+Space - Nuke\n\n" +
-                "Right Tank:\n" +
-                "Arrow Keys - Move/Angle\n" +
-                "Space - Fire\n" +
-                "Shift+Space - Nuke\n\n" +
-                "R - Restart");
-        instructionsLabel.setStyle("-fx-text-fill: white; -fx-font-size: 12px;");
-        instructionsLabel.setWrapText(true);
-        
-        sidePanel.getChildren().addAll(
-                powerLabel, powerSlider,
-                windLabel, windSlider,
-                instructionsLabel
-        );
-        
-        return sidePanel;
-    }
-    
+
+    private VBox createSidePanel() {
+         VBox sidePanel = new VBox(20);
+         sidePanel.setPadding(new Insets(20));
+         sidePanel.setStyle("-fx-background-color: #2b2b2b;");
+         sidePanel.setPrefWidth(200);
+
+         // Show constant parameter info instead of interactive sliders/instructions
+         String params = "Wind: " + DEFAULT_WIND + " (constant)\nPower: " + ((int)DEFAULT_POWER) + " (constant)";
+         Label paramsLabel = new Label(params);
+         paramsLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px;");
+         sidePanel.getChildren().add(paramsLabel);
+
+          return sidePanel;
+     }
+
     public static void main(String[] args) {
         launch(args);
     }
