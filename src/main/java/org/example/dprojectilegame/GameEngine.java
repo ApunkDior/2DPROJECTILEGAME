@@ -33,6 +33,14 @@ public class GameEngine {
     private boolean hasShotThisTurn; // Prevent multiple shots per turn
     private PauseTransition pendingSwitch; // pending delayed switch
 
+    // Invisible center barrier: tanks cannot cross this vertical band
+    private static final double BARRIER_X = CANVAS_WIDTH / 2.0; // center x
+    private static final double BARRIER_WIDTH = 10.0; // pixels wide
+    private static final double TANK_MOVE_SPEED = 2.0; // movement delta used by engine
+    // Visual animation speed multiplier for projectile motion ( >1.0 = faster animation )
+    // Increased to make projectiles animate faster on-screen without changing physical launch
+    private static final double PROJECTILE_ANIMATION_SPEED = 3.0;
+
     // Projectile type configurations
     private static class ProjectileType {
         double mass;
@@ -57,7 +65,7 @@ public class GameEngine {
         0.3,      // drag coefficient (lowered to reduce air resistance)
         0.005,    // cross-sectional area (m^2) - smaller to reduce drag
         42.0,     // radius (pixels) - larger projectile, slightly smaller than tank hitbox
-        150.0     // initial speed multiplier (increased for greater range)
+        150.0     // initial speed multiplier (base physical speed)
     );
     
     public GameEngine(Renderer renderer) {
@@ -152,7 +160,8 @@ public class GameEngine {
 
         // Derive projectile radius from tank size so projectile is slightly smaller than tank hitbox
         double tankRadius = Math.max(tank.getWidth(), tank.getHeight()) / 2.0;
-        double projectileRadius = Math.max(4.0, tankRadius * 0.85); // at least 4 px
+        // Make projectile slightly smaller than the tank hitbox (slightly reduced multiplier)
+        double projectileRadius = Math.max(3.0, tankRadius * 0.80); // at least 3 px
 
         activeProjectile = new Projectile(
             tank.getCannonTipX(),
@@ -194,15 +203,18 @@ public class GameEngine {
      * Updates game state each frame.
      */
     public void update(double deltaTime) {
-        if (gameOver) return;
-        
-        // Update active projectile
-        if (activeProjectile != null && activeProjectile.isActive()) {
-            physicsEngine.updateProjectile(activeProjectile, deltaTime);
-            
-            // Check collisions
-            checkCollisions();
-            
+         if (gameOver) return;
+
+         // Update active projectile
+         if (activeProjectile != null && activeProjectile.isActive()) {
+            // Use an animation time scale so the projectile appears to move faster without
+            // changing physical initial speed values. This scales the simulation time
+            // for the projectile only (visual speed), leaving physical constants unchanged.
+            physicsEngine.updateProjectile(activeProjectile, deltaTime * PROJECTILE_ANIMATION_SPEED);
+
+             // Check collisions
+             checkCollisions();
+
             // Check if projectile is out of bounds
             if (activeProjectile.getX() < 0 || activeProjectile.getX() > CANVAS_WIDTH ||
                 activeProjectile.getY() < 0 || activeProjectile.getY() > CANVAS_HEIGHT) {
@@ -306,11 +318,11 @@ public class GameEngine {
         if (tank.isLeftTank()) {
             // Left tank controls: WASD for move/angle, SPACE to fire
             if (code == KeyCode.A) {
-                tank.moveLeft();
-                terrain.adjustTankToTerrain(tank);
+                // move left but respect center barrier and screen bounds
+                moveTank(tank, -TANK_MOVE_SPEED);
             } else if (code == KeyCode.D) {
-                tank.moveRight();
-                terrain.adjustTankToTerrain(tank);
+                // move right but respect center barrier and screen bounds
+                moveTank(tank, TANK_MOVE_SPEED);
             } else if (code == KeyCode.W) {
                 tank.increaseAngle();
             } else if (code == KeyCode.S) {
@@ -325,11 +337,9 @@ public class GameEngine {
         } else {
             // Right tank controls: Arrow keys for move/angle, P to fire
             if (code == KeyCode.LEFT) {
-                tank.moveLeft();
-                terrain.adjustTankToTerrain(tank);
+                moveTank(tank, -TANK_MOVE_SPEED);
             } else if (code == KeyCode.RIGHT) {
-                tank.moveRight();
-                terrain.adjustTankToTerrain(tank);
+                moveTank(tank, TANK_MOVE_SPEED);
             } else if (code == KeyCode.UP) {
                 tank.increaseAngle();
             } else if (code == KeyCode.DOWN) {
@@ -343,7 +353,35 @@ public class GameEngine {
             }
         }
     }
-    
+
+    /**
+     * Move a tank by dx while enforcing screen bounds and the invisible center barrier.
+     */
+    private void moveTank(Tank tank, double dx) {
+        if (tank == null) return;
+        double newX = tank.getX() + dx;
+        double halfBarrier = BARRIER_WIDTH / 2.0;
+
+        double minX;
+        double maxX;
+        if (tank.isLeftTank()) {
+            minX = 0;
+            // center of tank must stay left of the left edge of the barrier
+            maxX = (BARRIER_X - halfBarrier) - tank.getWidth() / 2.0;
+        } else {
+            // center of tank must stay right of the right edge of the barrier
+            minX = (BARRIER_X + halfBarrier) - tank.getWidth() / 2.0;
+            maxX = CANVAS_WIDTH - tank.getWidth();
+        }
+
+        if (newX < minX) newX = minX;
+        if (newX > maxX) newX = maxX;
+
+        tank.setX(newX);
+        // Ensure the tank sits on the terrain after moving
+        if (terrain != null) terrain.adjustTankToTerrain(tank);
+    }
+
     /**
      * Starts the game loop.
      */
