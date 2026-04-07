@@ -9,6 +9,10 @@ import javafx.util.Duration;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Control class that manages the overall game state and coordinates
+ * between PhysicsEngine, CollisionDetector, and Renderer.
+ */
 public class GameEngine {
     private Player[] players;
     private int currentPlayerIndex;
@@ -75,8 +79,8 @@ public class GameEngine {
         
         // Create tanks
         // Increase tank model size and hitbox
-        Tank leftTank = new Tank(100, 0, 100*1.5, 70*1.5, true);
-        Tank rightTank = new Tank(CANVAS_WIDTH - 200, 0, 100*1.5, 70*1.5, false);
+        Tank leftTank = new Tank(100, 0, 100, 70, true);
+        Tank rightTank = new Tank(CANVAS_WIDTH - 200, 0, 100, 70, false);
 
         // Position tanks on terrain
         terrain.adjustTankToTerrain(leftTank);
@@ -110,6 +114,9 @@ public class GameEngine {
         }
     }
 
+    /**
+     * Fires a projectile from the current player's tank.
+     */
     public void fireProjectile(double angle, double power, boolean isNuke) {
         if (gameOver) return;
         // If there's an active projectile still in flight, can't fire
@@ -163,6 +170,9 @@ public class GameEngine {
         hasShotThisTurn = true;
     }
 
+    /**
+     * Schedule a delayed switch of turns after a given delay in seconds.
+     */
     private void scheduleSwitchTurn(double delaySeconds) {
         // Cancel existing pending switch if any
         if (pendingSwitch != null) {
@@ -179,7 +189,10 @@ public class GameEngine {
         });
         pendingSwitch.play();
     }
-
+    
+    /**
+     * Updates game state each frame.
+     */
     public void update(double deltaTime) {
         if (gameOver) return;
         
@@ -264,6 +277,10 @@ public class GameEngine {
     public Player getCurrentPlayer() {
         return players[currentPlayerIndex];
     }
+    
+    /**
+     * Sets up input handling for the game.
+     */
     public void setupInputHandling(Scene scene) {
         scene.setOnKeyPressed(event -> {
             pressedKeys.add(event.getCode());
@@ -326,7 +343,10 @@ public class GameEngine {
             }
         }
     }
-
+    
+    /**
+     * Starts the game loop.
+     */
     public void startGameLoop() {
         AnimationTimer gameLoop = new AnimationTimer() {
             @Override
@@ -383,6 +403,9 @@ public class GameEngine {
         if (physicsEngine != null) physicsEngine.setGravity(gravity);
     }
 
+    /**
+     * Set the power value for all tanks (used by GameApp to apply a constant power).
+     */
     public void setPowerForAll(double power) {
         for (Player p : players) {
             if (p != null && p.getTank() != null) {
@@ -390,6 +413,7 @@ public class GameEngine {
             }
         }
     }
+
     public boolean isGameOver() {
         return gameOver;
     }
