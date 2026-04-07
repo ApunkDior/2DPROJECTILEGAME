@@ -75,14 +75,12 @@ public class Renderer {
             }
         }
     }
-    
     private void clearScreen() {
         graphics.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
     }
-    
     private void drawTerrain(Terrain terrain) {
-        graphics.setFill(Color.SADDLEBROWN);
-        graphics.setStroke(Color.DARKGREEN);
+        graphics.setFill(Color.TRANSPARENT);
+        graphics.setStroke(Color.DARKBLUE.darker());
         graphics.setLineWidth(2);
         
         double[] heights = terrain.getHeights();
@@ -107,7 +105,6 @@ public class Renderer {
         graphics.fillPolygon(xPoints, yPoints, xPoints.length);
         graphics.strokePolyline(xPoints, yPoints, xPoints.length);
     }
-    
     private void drawTank(Tank t) {
         Image tankImage = t.getCurrentImage();
         if (tankImage != null) {
@@ -124,7 +121,6 @@ public class Renderer {
         String angleText = String.format("%.0f°", t.getAngle());
         graphics.fillText(angleText, t.getX(), t.getY() - 5);
     }
-    
     private void drawProjectile(Projectile p) {
         if (p.isNuke()) {
             graphics.setFill(Color.ORANGE);
@@ -133,10 +129,9 @@ public class Renderer {
         }
         graphics.fillOval(p.getX() - p.getRadius(), 
                          p.getY() - p.getRadius(),
-                         p.getRadius() * 2, 
-                         p.getRadius() * 2);
+                         p.getRadius() * 0.6,
+                         p.getRadius() * 0.6);
     }
-    
     private void drawHealthBar(Tank t) {
         double barWidth = 200;
         double barHeight = 20;
@@ -163,10 +158,6 @@ public class Renderer {
         graphics.fillText(String.format("%d/%d", t.getHealth(), t.getMaxHealth()), 
                          x + 5, y + 15);
     }
-    
-    /**
-     * Draws game over message.
-     */
     public void drawGameOver(String message) {
         graphics.setFill(Color.BLACK);
         graphics.setGlobalAlpha(0.7);
@@ -177,10 +168,6 @@ public class Renderer {
         graphics.setFont(Font.font(48));
         graphics.fillText(message, CANVAS_WIDTH / 2 - 150, CANVAS_HEIGHT / 2);
     }
-    
-    /**
-     * Draws current player indicator and game info.
-     */
     public void drawGameInfo(String currentPlayerName, double wind, double power, int consecutiveHits) {
         graphics.setFill(Color.WHITE);
         graphics.setFont(Font.font(16));

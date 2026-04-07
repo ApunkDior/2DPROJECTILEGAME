@@ -25,16 +25,6 @@ public class Projectile {
     // Constants
     private static final double GRAVITY = 9.81; // m/s^2
 
-    /**
-     * Constructor for Projectile
-     * @param x Initial x position
-     * @param y Initial y position
-     * @param vx Initial x velocity (m/s)
-     * @param vy Initial y velocity (m/s)
-     * @param mass Mass of the projectile (kg)
-     * @param dragCoefficientK Drag coefficient k (from F = k * v^2)
-     * @param radius Radius of the projectile (pixels)
-     */
     public Projectile(double x, double y, double vx, double vy,
                       double mass, double dragCoefficientK, double radius) {
         this.x = x;
@@ -50,12 +40,6 @@ public class Projectile {
         this.isNuke = false;
     }
 
-    /**
-     * Update the projectile's position based on current velocity using kinematics.
-     * Position update: x = x + vx * Δt, y = y + vy * Δt
-     *
-     * @param deltaTime Time step in seconds
-     */
     public void updatePosition(double deltaTime) {
         if (!isActive) return;
 
@@ -63,16 +47,6 @@ public class Projectile {
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;
     }
-
-    /**
-     * Calculate and apply gravity and vertical air resistance forces.
-     * Forces:
-     *   - Gravity: Fg = -m * g (downward)
-     *   - Drag: Fd = -k * vy * |vy| (opposes motion)
-     * Acceleration: ay = (-m * g - k * vy * |vy|) / m = -g - (k/m) * vy * |vy|
-     *
-     * @param deltaTime Time step in seconds
-     */
     public void applyGravityAndDrag(double deltaTime) {
         if (!isActive) return;
 
@@ -85,14 +59,7 @@ public class Projectile {
         this.vy += this.ay * deltaTime;
     }
 
-    /**
-     * Calculate and apply horizontal air resistance forces.
-     * Forces:
-     *   - Drag: Fd = -k * vx * |vx| (opposes motion)
-     * Acceleration: ax = (-k * vx * |vx|) / m = -(k/m) * vx * |vx|
-     *
-     * @param deltaTime Time step in seconds
-     */
+
     public void applyHorizontalDrag(double deltaTime) {
         if (!isActive) return;
 
@@ -104,10 +71,6 @@ public class Projectile {
         // Update horizontal velocity using kinematics: vx = vx + ax * Δt
         this.vx += this.ax * deltaTime;
     }
-
-    /**
-     * Deactivate the projectile (used when it goes off-screen or hits something)
-     */
     public void deactivate() {
         this.isActive = false;
     }

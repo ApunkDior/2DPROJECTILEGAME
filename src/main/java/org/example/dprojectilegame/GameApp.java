@@ -76,7 +76,7 @@ public class GameApp extends Application {
           return sidePanel;
      }
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         launch(args);
     }
 }

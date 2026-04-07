@@ -3,9 +3,6 @@ package org.example.dprojectilegame;
 import javafx.scene.image.Image;
 import java.io.File;
 
-/**
- * Entity class representing a tank in the game.
- */
 public class Tank {
     private double x;
     private double y;
@@ -41,7 +38,7 @@ public class Tank {
         String graphicsPath = "/Users/shakinatoussaint/Downloads/Graphics/";
         
         try {
-            for (int i = 0; i <= 5; i++) {
+            for (int i = 0; i <= 10; i++) {
                 int angle = i * 10;
                 String filename = graphicsPath + "TANKWAR(" + prefix + angle + "D).png";
                 File file = new File(filename);
@@ -56,7 +53,7 @@ public class Tank {
     
     public Image getCurrentImage() {
         int angleIndex = (int) Math.abs(angle) / 10;
-        if (angleIndex > 5) angleIndex = 5;
+        if (angleIndex > 5) angleIndex = 10;
         if (angleImages != null && angleIndex < angleImages.length && angleImages[angleIndex] != null) {
             return angleImages[angleIndex];
         }
@@ -87,7 +84,6 @@ public class Tank {
             if (angle > MAX_ANGLE) angle = MAX_ANGLE;
         }
     }
-    
     public void decreaseAngle() {
         if (angle > MIN_ANGLE) {
             angle -= ANGLE_STEP;
@@ -96,30 +92,50 @@ public class Tank {
     }
     
     // Getters and setters
-    public double getX() { return x; }
-    public double getY() { return y; }
-    public void setX(double x) { this.x = x; }
-    public void setY(double y) { this.y = y; }
-    public double getWidth() { return width; }
-    public double getHeight() { return height; }
-    public int getHealth() { return health; }
-    public double getAngle() { return angle; }
-    public void setAngle(double angle) { 
-        this.angle = Math.max(MIN_ANGLE, Math.min(MAX_ANGLE, angle)); 
+    public double getX() {
+        return x;
     }
-    public double getPower() { return power; }
-    public void setPower(double power) { this.power = power; }
-    public boolean isLeftTank() { return isLeftTank; }
-    public int getMaxHealth() { return MAX_HEALTH; }
-    
-    /**
-     * Gets the cannon tip position for firing projectiles.
-     */
+    public double getY() {
+        return y;
+    }
+    public void setX(double x) {
+        this.x = x;
+    }
+    public void setY(double y) {
+        this.y = y;
+    }
+    public double getWidth() {
+        return width;
+    }
+    public double getHeight() {
+        return height;
+    }
+    public int getHealth() {
+        return health;
+    }
+    public double getAngle() {
+        return angle;
+    }
+    public void setAngle(double angle) {
+        this.angle = Math.max(MIN_ANGLE, Math.min(MAX_ANGLE, angle));
+    }
+    public double getPower() {
+        return power;
+    }
+    public void setPower(double power) {
+        this.power = power;
+    }
+    public boolean isLeftTank() {
+        return isLeftTank;
+    }
+    public int getMaxHealth() {
+        return MAX_HEALTH;
+    }
     public double getCannonTipX() {
-        return x + width / 2;
+        return isLeftTank ? x + width : x;
     }
     
     public double getCannonTipY() {
-        return y;
+        return y + height * 0.25;
     }
 }

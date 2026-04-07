@@ -14,7 +14,6 @@ public class Player {
     }
     
     public Tank getTank() {
-
         return tank;
     }
     
@@ -31,17 +30,14 @@ public class Player {
         }
         return false;
     }
-    
-
     public void resetConsecutiveHits() {
         consecutiveHits = 0;
     }
-    
     public int getConsecutiveHits() {
         return consecutiveHits;
     }
-    
     public boolean hasNukeAvailable() {
         return consecutiveHits >= HITS_FOR_NUKE;
     }
+
 }
