@@ -1,12 +1,12 @@
 package org.example.dprojectilegame;
 
 /**
- * Control class that handles all physics calculations for projectiles.
- * Implements air resistance, drag, and gravity according to the provided formulas.
+ * Gravity, wind, and quadratic air drag integration for {@link Projectile} state.
  */
 public class PhysicsEngine {
     private double gravity; // Gravitational acceleration (m/s^2)
-    private double wind; // Wind force affecting projectiles
+    /** Horizontal wind force {@code u} (same units as used in {@code ax = … + wind/m}); vertical v = 0 in this model. */
+    private double wind;
     
     private static final double DEFAULT_GRAVITY = 9.81;
     
@@ -21,7 +21,19 @@ public class PhysicsEngine {
     }
     
 
+    /**
+     * Integrates projectile motion with default gravity scale (1.0).
+     */
     public void updateProjectile(Projectile p, double deltaTime) {
+        updateProjectile(p, deltaTime, 1.0);
+    }
+
+    /**
+     * Integrates projectile motion; {@code gravityScale} scales gravitational acceleration only.
+     *
+     * @param gravityScale multiplier for {@link #gravity} (from {@link ProjectileType#getGravityScale()})
+     */
+    public void updateProjectile(Projectile p, double deltaTime, double gravityScale) {
         if (!p.isActive()) return;
 
         // Read current state
@@ -30,9 +42,11 @@ public class PhysicsEngine {
         double vx = p.getVx();
         double vy = p.getVy();
 
+        double g = gravity * gravityScale;
+
         // Compute accelerations (y increases downward)
         // Vertical acceleration: gravity downward minus drag opposing motion
-        double ay = gravity - (k / m) * vy * Math.abs(vy);
+        double ay = g - (k / m) * vy * Math.abs(vy);
 
         // Horizontal acceleration: drag opposing motion plus wind/m
         double ax = -(k / m) * vx * Math.abs(vx) + (wind / m);
@@ -88,8 +102,12 @@ public class PhysicsEngine {
     }
     
     // Getters and setters
-    public double getGravity() { return gravity; }
-    public void setGravity(double gravity) { this.gravity = gravity; }
-    public double getWind() { return wind; }
-    public void setWind(double wind) { this.wind = wind; }
+    public double getGravity() {
+        return gravity; }
+    public void setGravity(double gravity) {
+        this.gravity = gravity; }
+    public double getWind() {
+        return wind; }
+    public void setWind(double wind) {
+        this.wind = wind; }
 }

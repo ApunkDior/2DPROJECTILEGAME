@@ -3,22 +3,33 @@ package org.example.dprojectilegame;
 import javafx.animation.AnimationTimer;
 import javafx.animation.PauseTransition;
 import javafx.scene.Scene;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
+import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.util.Duration;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
- * Control class that manages the overall game state and coordinates
- * between PhysicsEngine, CollisionDetector, and Renderer.
+ * Orchestrates input, world updates, and rendering; delegates physics and terrain to dedicated types.
  */
 public class GameEngine {
     private Player[] players;
     private int currentPlayerIndex;
     private Projectile activeProjectile;
     private PhysicsEngine physicsEngine;
+    private PhysicsUpdater physicsUpdater;
     private CollisionDetector collisionDetector;
+    private ExplosionManager explosionManager;
     private Renderer renderer;
     private Terrain terrain;
     private boolean gameOver;
@@ -33,33 +44,50 @@ public class GameEngine {
     private boolean hasShotThisTurn; // Prevent multiple shots per turn
     private PauseTransition pendingSwitch; // pending delayed switch
 
-    // Projectile type configurations
-    private static class ProjectileType {
-        double mass;
-        double dragCoefficient;
-        double crossSectionalArea;
-        double radius;
-        double initialSpeed;
-        
-        ProjectileType(double mass, double dragCoefficient, double crossSectionalArea, 
-                      double radius, double initialSpeed) {
-            this.mass = mass;
-            this.dragCoefficient = dragCoefficient;
-            this.crossSectionalArea = crossSectionalArea;
-            this.radius = radius;
-            this.initialSpeed = initialSpeed;
+    /** Player index (0 or 1) who fired the current projectile; null when none in flight. */
+    private Integer shooterPlayerIndexWhenFired;
+    private double flightElapsedTime;
+    /** Next whole second to record (1, 2, …). */
+    private int nextWholeSecondToLog;
+    private final List<ShotSample> currentFlightSamples = new ArrayList<>();
+
+    private Label flightTimerLabel;
+    private Label flightTableTitleLabel;
+    private Label flightTableBodyLabel;
+    /** Minimal v⃗ᵢ / v⃗f / t text */
+    private Label telemetryFormulasLabel;
+    private XYChart.Series<Number, Number> trajectoryVxSeries;
+    private XYChart.Series<Number, Number> trajectoryVySeries;
+    private XYChart.Series<Number, Number> trajectoryParabolaSeries;
+    private ImageView telemetryTankIcon;
+    private Image telemetryTankImageLeft;
+    private Image telemetryTankImageRight;
+    /** Velocity at impact (before deactivate); flight time at impact */
+    private double lastImpactVx;
+    private double lastImpactVy;
+    private double lastFlightTimeAtImpact;
+    private String lastShotTableTitle = "";
+    private String lastShotTableBody = "";
+    private String lastShotFormulasText = "";
+
+    private double lastLaunchVx0;
+    private double lastLaunchVy0;
+    private double trajSampleAccum;
+
+    private static final double TRAJECTORY_SAMPLE_INTERVAL_SEC = 0.05;
+
+    private static final class ShotSample {
+        final int second;
+        final double vx;
+        final double vy;
+
+        ShotSample(int second, double vx, double vy) {
+            this.second = second;
+            this.vx = vx;
+            this.vy = vy;
         }
     }
-    
-    // Default projectile type (standard shell)
-    private static final ProjectileType DEFAULT_PROJECTILE = new ProjectileType(
-        2.0,      // mass (kg) - heavier to reduce deceleration from drag
-        0.3,      // drag coefficient (lowered to reduce air resistance)
-        0.005,    // cross-sectional area (m^2) - smaller to reduce drag
-        42.0,     // radius (pixels) - larger projectile, slightly smaller than tank hitbox
-        150.0     // initial speed multiplier (increased for greater range)
-    );
-    
+
     public GameEngine(Renderer renderer) {
         this.renderer = renderer;
         this.players = new Player[2];
@@ -69,18 +97,107 @@ public class GameEngine {
         this.pressedKeys = new HashSet<>();
         this.hasShotThisTurn = false;
         this.pendingSwitch = null;
+        this.shooterPlayerIndexWhenFired = null;
+        this.flightElapsedTime = 0;
+        this.nextWholeSecondToLog = 1;
 
         initializeGame();
     }
+
+    /**
+     * Optional sidebar labels for flight timer and post-shot data table (right panel).
+     * Pass {@code null} for {@code timerLabel} to disable the in-flight time ticker.
+     */
+    public void setTelemetrySidebarLabels(Label timerLabel, Label tableTitleLabel, Label tableBodyLabel) {
+        this.flightTimerLabel = timerLabel;
+        this.flightTableTitleLabel = tableTitleLabel;
+        this.flightTableBodyLabel = tableBodyLabel;
+    }
+
+    /**
+     * Charts: Vx/Vy vs time, and trajectory parabola (x vs height from bottom); wind/power sliders.
+     */
+    public void setTelemetryExtension(Label formulasLabel,
+                                      LineChart<Number, Number> chartVxVy,
+                                      LineChart<Number, Number> chartParabola,
+                                      Slider windControl,
+                                      Slider powerControl) {
+        this.telemetryFormulasLabel = formulasLabel;
+        if (chartVxVy != null) {
+            NumberAxis xAxis = (NumberAxis) chartVxVy.getXAxis();
+            NumberAxis yAxis = (NumberAxis) chartVxVy.getYAxis();
+            xAxis.setLabel("Time (s)");
+            yAxis.setLabel("Velocity (px/s)");
+            xAxis.setAutoRanging(true);
+            yAxis.setAutoRanging(true);
+            trajectoryVxSeries = new XYChart.Series<>();
+            trajectoryVxSeries.setName("Vx");
+            trajectoryVySeries = new XYChart.Series<>();
+            trajectoryVySeries.setName("Vy");
+            chartVxVy.setTitle(null);
+            chartVxVy.setLegendVisible(true);
+            chartVxVy.getData().clear();
+            chartVxVy.getData().add(trajectoryVxSeries);
+            chartVxVy.getData().add(trajectoryVySeries);
+        }
+        if (chartParabola != null) {
+            NumberAxis px = (NumberAxis) chartParabola.getXAxis();
+            NumberAxis py = (NumberAxis) chartParabola.getYAxis();
+            px.setLabel("x (px)");
+            py.setLabel("Height from bottom (px)");
+            px.setAutoRanging(true);
+            py.setAutoRanging(true);
+            trajectoryParabolaSeries = new XYChart.Series<>();
+            trajectoryParabolaSeries.setName("Path");
+            chartParabola.setTitle(null);
+            chartParabola.setLegendVisible(false);
+            chartParabola.getData().clear();
+            chartParabola.getData().add(trajectoryParabolaSeries);
+        }
+        if (windControl != null) {
+            windControl.valueProperty().addListener((obs, o, n) -> setWind(n.doubleValue()));
+            setWind(windControl.getValue());
+            blockArrowKeysOnSlider(windControl);
+        }
+        if (powerControl != null) {
+            powerControl.valueProperty().addListener((obs, o, n) -> setPowerForAll(n.doubleValue()));
+            setPowerForAll(powerControl.getValue());
+            blockArrowKeysOnSlider(powerControl);
+        }
+    }
+
+    /**
+     * 0° tank sprites for telemetry (left vs right shooter).
+     */
+    public void setTelemetryTankIcon(ImageView imageView, Image leftTank0Deg, Image rightTank0Deg) {
+        this.telemetryTankIcon = imageView;
+        this.telemetryTankImageLeft = leftTank0Deg;
+        this.telemetryTankImageRight = rightTank0Deg;
+    }
+
+    /** Left/Right arrow keys stay reserved for the right tank; do not nudge sliders when focused. */
+    private static void blockArrowKeysOnSlider(Slider slider) {
+        slider.setFocusTraversable(false);
+        slider.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.LEFT || e.getCode() == KeyCode.RIGHT) {
+                e.consume();
+            }
+        });
+    }
     
     private void initializeGame() {
+        shooterPlayerIndexWhenFired = null;
+        flightElapsedTime = 0;
+        nextWholeSecondToLog = 1;
+        currentFlightSamples.clear();
+
         // Create terrain
         terrain = new Terrain(CANVAS_WIDTH, TERRAIN_BASE_HEIGHT, CANVAS_HEIGHT);
         
         // Create tanks
         // Increase tank model size and hitbox
-        Tank leftTank = new Tank(100, 0, 100, 70, true);
-        Tank rightTank = new Tank(CANVAS_WIDTH - 200, 0, 100, 70, false);
+        Tank leftTank = new Tank(100, 0, 100*2.3, 70*1.3, true);
+        Tank rightTank = new Tank(CANVAS_WIDTH - 200, 0, 100*2.3, 70*1.3, false);
 
         // Position tanks on terrain
         terrain.adjustTankToTerrain(leftTank);
@@ -90,11 +207,35 @@ public class GameEngine {
         players[0] = new Player("Left", leftTank);
         players[1] = new Player("Right", rightTank);
         
-        // Initialize physics and collision systems
         physicsEngine = new PhysicsEngine(gravity, 0.0);
+        physicsUpdater = new PhysicsUpdater(physicsEngine);
         collisionDetector = new CollisionDetector(terrain);
+        explosionManager = new ExplosionManager();
         
         startGame();
+        clearPersistedShotTable();
+    }
+
+    private void clearPersistedShotTable() {
+        lastShotTableTitle = "";
+        lastShotTableBody = "";
+        lastShotFormulasText = "";
+        if (flightTableTitleLabel != null) {
+            flightTableTitleLabel.setText("");
+            flightTableTitleLabel.setVisible(false);
+        }
+        if (flightTableBodyLabel != null) {
+            flightTableBodyLabel.setText("");
+            flightTableBodyLabel.setVisible(false);
+        }
+        if (telemetryFormulasLabel != null) {
+            telemetryFormulasLabel.setText("");
+            telemetryFormulasLabel.setVisible(false);
+        }
+        if (telemetryTankIcon != null) {
+            telemetryTankIcon.setVisible(false);
+        }
+        resetTrajectorySeries();
     }
     
     public void startGame() {
@@ -102,6 +243,9 @@ public class GameEngine {
         currentPlayerIndex = 0; // Ensure left tank starts
         activeProjectile = null;
         hasShotThisTurn = false;
+        if (explosionManager != null) {
+            explosionManager.clear();
+        }
     }
     
     public void startTurn() {
@@ -114,9 +258,6 @@ public class GameEngine {
         }
     }
 
-    /**
-     * Fires a projectile from the current player's tank.
-     */
     public void fireProjectile(double angle, double power, boolean isNuke) {
         if (gameOver) return;
         // If there's an active projectile still in flight, can't fire
@@ -127,47 +268,31 @@ public class GameEngine {
         Player currentPlayer = getCurrentPlayer();
         Tank tank = currentPlayer.getTank();
         
-        // Calculate initial velocity from angle and power
-        double angleRad = Math.toRadians(angle);
-        double initialSpeed = power * DEFAULT_PROJECTILE.initialSpeed / 100.0;
-        
-        double vx = initialSpeed * Math.cos(angleRad);
-        double vy = -initialSpeed * Math.sin(angleRad); // Negative because y increases downward
-        
-        // Adjust for right tank (reverse direction)
-        if (!tank.isLeftTank()) {
-            vx = -vx;
-        }
-        
-        // Create projectile
-        ProjectileType type = isNuke ? 
-            new ProjectileType(DEFAULT_PROJECTILE.mass * 2, DEFAULT_PROJECTILE.dragCoefficient,
-                              DEFAULT_PROJECTILE.crossSectionalArea, DEFAULT_PROJECTILE.radius * 2,
-                              DEFAULT_PROJECTILE.initialSpeed) : DEFAULT_PROJECTILE;
-        
-        // Compute quadratic drag constant k from the drag equation: F = 0.5 * rho * C_d * A * v^2
-        // Projectile expects dragCoefficientK where F_drag = k * v^2, so k = 0.5 * rho * C_d * A
-        double airDensity = 1.225; // kg/m^3 (sea level standard)
-        double dragCoefficientK = 0.5 * airDensity * type.dragCoefficient * type.crossSectionalArea;
+        ProjectileType projectileKind = isNuke ? ProjectileType.EXPLOSIVE : ProjectileType.STANDARD;
+        double initialSpeed = power * projectileKind.getInitialSpeedMultiplier() / 100.0;
 
-        // Derive projectile radius from tank size so projectile is slightly smaller than tank hitbox
-        double tankRadius = Math.max(tank.getWidth(), tank.getHeight()) / 2.0;
-        double projectileRadius = Math.max(4.0, tankRadius * 0.85); // at least 4 px
+        double[] muzzle = new double[2];
+        double[] vel = new double[2];
+        tank.getMuzzleWorldPosition(muzzle);
+        tank.getLaunchVelocityWorld(angle, initialSpeed, vel);
 
-        activeProjectile = new Projectile(
-            tank.getCannonTipX(),
-            tank.getCannonTipY(),
-            vx, vy,
-            type.mass,
-            dragCoefficientK,
-            projectileRadius
-        );
-        // Mark as nuke if applicable
-        if (isNuke) {
-            activeProjectile.setNuke(true);
-        }
+        lastLaunchVx0 = vel[0];
+        lastLaunchVy0 = vel[1];
+
+        activeProjectile = ProjectileType.createProjectileAt(
+                muzzle[0], muzzle[1], vel[0], vel[1], tank, projectileKind);
+
+        resetTrajectorySeries();
+        appendTrajectorySample(0.0, vel[0], vel[1], muzzle[0], muzzle[1]);
+        trajSampleAccum = 0.0;
         // Mark that the current player has fired this turn
         hasShotThisTurn = true;
+
+        shooterPlayerIndexWhenFired = currentPlayerIndex;
+        refreshTelemetryTankIcon();
+        flightElapsedTime = 0;
+        nextWholeSecondToLog = 1;
+        currentFlightSamples.clear();
     }
 
     /**
@@ -191,68 +316,194 @@ public class GameEngine {
     }
     
     /**
-     * Updates game state each frame.
+     * Per-frame orchestration: effects, projectile flight, tank placement, win check.
      */
     public void update(double deltaTime) {
-        if (gameOver) return;
-        
-        // Update active projectile
-        if (activeProjectile != null && activeProjectile.isActive()) {
-            physicsEngine.updateProjectile(activeProjectile, deltaTime);
-            
-            // Check collisions
-            checkCollisions();
-            
-            // Check if projectile is out of bounds
-            if (activeProjectile.getX() < 0 || activeProjectile.getX() > CANVAS_WIDTH ||
-                activeProjectile.getY() < 0 || activeProjectile.getY() > CANVAS_HEIGHT) {
-                activeProjectile.deactivate();
-                getCurrentPlayer().resetConsecutiveHits();
-                scheduleSwitchTurn(1.0); // delay 1 second before switching
-            }
+        if (gameOver) {
+            return;
         }
 
-        // Adjust tanks to terrain (in case terrain was destroyed)
+        explosionManager.update(deltaTime);
+        updateActiveProjectileFlight(deltaTime);
+        syncAllTanksToTerrain();
+        checkWinCondition();
+    }
+
+    /**
+     * Telemetry sampling, physics step, and collisions for the shell in flight.
+     * <p>
+     * End-of-shot rule: a round ends only on <strong>ground impact</strong>, <strong>tank hit</strong>, or
+     * (optional future) explicit timeout — not on canvas edge clipping, so the arc and Vx/Vy telemetry can
+     * continue until a real impact (terrain extends past screen via {@link Terrain#getYAt(double)}).
+     */
+    private void updateActiveProjectileFlight(double deltaTime) {
+        if (activeProjectile == null || !activeProjectile.isActive()) {
+            return;
+        }
+        flightElapsedTime += deltaTime;
+        physicsUpdater.step(activeProjectile, deltaTime, terrain);
+
+        trajSampleAccum += deltaTime;
+        while (trajSampleAccum >= TRAJECTORY_SAMPLE_INTERVAL_SEC && activeProjectile.isActive()) {
+            trajSampleAccum -= TRAJECTORY_SAMPLE_INTERVAL_SEC;
+            appendTrajectorySample(
+                    flightElapsedTime,
+                    activeProjectile.getVx(),
+                    activeProjectile.getVy(),
+                    activeProjectile.getX(),
+                    activeProjectile.getY());
+        }
+
+        while (activeProjectile.isActive() && flightElapsedTime >= nextWholeSecondToLog) {
+            currentFlightSamples.add(new ShotSample(
+                    nextWholeSecondToLog,
+                    activeProjectile.getVx(),
+                    activeProjectile.getVy()));
+            nextWholeSecondToLog++;
+        }
+
+        checkCollisions();
+    }
+
+    private void syncAllTanksToTerrain() {
         for (Player player : players) {
             if (player != null) {
                 terrain.adjustTankToTerrain(player.getTank());
             }
         }
-        
-        checkWinCondition();
+        for (Player player : players) {
+            if (player != null && player.getTank() != null) {
+                player.getTank().stepBodyRotationTowardTarget();
+            }
+        }
     }
     
     private void checkCollisions() {
-        if (activeProjectile == null || !activeProjectile.isActive()) return;
-        
-        // Check ground collision
-        if (collisionDetector.checkGroundCollision(activeProjectile)) {
-            activeProjectile.deactivate();
-            getCurrentPlayer().resetConsecutiveHits();
-            // Delay switching to the other player's turn by 1 second
-            scheduleSwitchTurn(1.0);
+        if (activeProjectile == null || !activeProjectile.isActive()) {
             return;
         }
-        
-        // Check tank collisions
+
+        if (collisionDetector.checkGroundCollision(activeProjectile)) {
+            double sx = activeProjectile.getX();
+            double sy = terrain.getYAt(sx);
+            lastImpactVx = activeProjectile.getVx();
+            lastImpactVy = activeProjectile.getVy();
+            lastFlightTimeAtImpact = flightElapsedTime;
+            explosionManager.spawn(sx, sy, activeProjectile.getExplosionSpawnRadius());
+            activeProjectile.deactivate();
+            finalizeShotTelemetry();
+            getCurrentPlayer().resetConsecutiveHits();
+            scheduleSwitchTurn(0.5);
+            return;
+        }
+
         for (int i = 0; i < players.length; i++) {
             Player player = players[i];
             if (player != null && player != getCurrentPlayer()) {
                 Tank tank = player.getTank();
                 if (collisionDetector.checkTankCollision(activeProjectile, tank)) {
-                    // Calculate damage
-                    int damage = activeProjectile.isNuke() ? 3 : 1;
+                    double ax = activeProjectile.getX();
+                    double ay = terrain.getYAt(ax);
+                    lastImpactVx = activeProjectile.getVx();
+                    lastImpactVy = activeProjectile.getVy();
+                    lastFlightTimeAtImpact = flightElapsedTime;
+                    explosionManager.spawn(ax, ay, activeProjectile.getExplosionSpawnRadius());
+                    int damage = activeProjectile.getProjectileType().getImpactDamage();
                     tank.takeDamage(damage);
-                    
-                    // Record hit for nuke system
+
                     if (!activeProjectile.isNuke()) {
                         getCurrentPlayer().recordHit();
                     }
                     activeProjectile.deactivate();
-                    // Delay switching turns so explosion/impact can be seen
+                    finalizeShotTelemetry();
                     scheduleSwitchTurn(1.0);
                     return;
                 }
+            }
+        }
+    }
+
+    private void finalizeShotTelemetry() {
+        if (shooterPlayerIndexWhenFired == null || players[shooterPlayerIndexWhenFired] == null) {
+            return;
+        }
+        Player shooter = players[shooterPlayerIndexWhenFired];
+        boolean left = shooter.getTank().isLeftTank();
+        lastShotTableTitle = (left ? "Left Tank" : "Right Tank") + " — Last Shot";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("%-8s %-12s %-12s%n", "Time", "Vy", "Vx"));
+        for (ShotSample s : currentFlightSamples) {
+            sb.append(String.format("%-8d %-12.2f %-12.2f%n", s.second, s.vy, s.vx));
+        }
+        lastShotTableBody = sb.toString();
+
+        double viMag = Math.hypot(lastLaunchVx0, lastLaunchVy0);
+        double vfMag = Math.hypot(lastImpactVx, lastImpactVy);
+        StringBuilder fb = new StringBuilder();
+        fb.append(String.format("v⃗ᵢ = (%.2f, %.2f)   |v⃗ᵢ| = %.2f px/s%n", lastLaunchVx0, lastLaunchVy0, viMag));
+        fb.append(String.format("v⃗f = (%.2f, %.2f)   |v⃗f| = %.2f px/s%n", lastImpactVx, lastImpactVy, vfMag));
+        fb.append(String.format("t = %.2f s%n", lastFlightTimeAtImpact));
+        lastShotFormulasText = fb.toString();
+
+        if (flightTableTitleLabel != null) {
+            flightTableTitleLabel.setText(lastShotTableTitle);
+            flightTableTitleLabel.setVisible(true);
+        }
+        if (flightTableBodyLabel != null) {
+            flightTableBodyLabel.setText(lastShotTableBody);
+            flightTableBodyLabel.setVisible(true);
+        }
+        if (telemetryFormulasLabel != null) {
+            telemetryFormulasLabel.setText(lastShotFormulasText);
+            telemetryFormulasLabel.setVisible(true);
+        }
+    }
+
+    private void resetTrajectorySeries() {
+        if (trajectoryVxSeries != null) {
+            trajectoryVxSeries.getData().clear();
+        }
+        if (trajectoryVySeries != null) {
+            trajectoryVySeries.getData().clear();
+        }
+        if (trajectoryParabolaSeries != null) {
+            trajectoryParabolaSeries.getData().clear();
+        }
+    }
+
+    /** Vx/Vy vs time, and parabola: x vs height from bottom. */
+    private void appendTrajectorySample(double timeSec, double vx, double vy, double x, double screenY) {
+        if (trajectoryVxSeries != null && trajectoryVySeries != null) {
+            trajectoryVxSeries.getData().add(new XYChart.Data<>(timeSec, vx));
+            trajectoryVySeries.getData().add(new XYChart.Data<>(timeSec, vy));
+        }
+        if (trajectoryParabolaSeries != null) {
+            double heightFromBottom = CANVAS_HEIGHT - screenY;
+            trajectoryParabolaSeries.getData().add(new XYChart.Data<>(x, heightFromBottom));
+        }
+    }
+
+    private void refreshTelemetryTankIcon() {
+        if (telemetryTankIcon == null || telemetryTankImageLeft == null || shooterPlayerIndexWhenFired == null) {
+            return;
+        }
+        Player shooter = players[shooterPlayerIndexWhenFired];
+        if (shooter == null || shooter.getTank() == null) {
+            return;
+        }
+        telemetryTankIcon.setImage(shooter.getTank().isLeftTank() ? telemetryTankImageLeft : telemetryTankImageRight);
+        telemetryTankIcon.setVisible(true);
+    }
+
+    private void updateTelemetrySidebar() {
+        if (flightTimerLabel != null) {
+            if (activeProjectile != null && activeProjectile.isActive()) {
+                flightTimerLabel.setVisible(true);
+                flightTimerLabel.setText(String.format("t = %.1fs", flightElapsedTime));
+            } else {
+                flightTimerLabel.setVisible(false);
+                flightTimerLabel.setText("");
             }
         }
     }
@@ -277,10 +528,7 @@ public class GameEngine {
     public Player getCurrentPlayer() {
         return players[currentPlayerIndex];
     }
-    
-    /**
-     * Sets up input handling for the game.
-     */
+
     public void setupInputHandling(Scene scene) {
         scene.setOnKeyPressed(event -> {
             pressedKeys.add(event.getCode());
@@ -302,9 +550,8 @@ public class GameEngine {
         
         Player currentPlayer = getCurrentPlayer();
         Tank tank = currentPlayer.getTank();
-        // Controls: Left tank uses WASD + SPACE, Right tank uses Arrow keys + P
+        // Left: L=left, J=right, I=up, K=down, R=fire. Right: arrows + P.
         if (tank.isLeftTank()) {
-            // Left tank controls: WASD for move/angle, SPACE to fire
             if (code == KeyCode.A) {
                 tank.moveLeft();
                 terrain.adjustTankToTerrain(tank);
@@ -315,7 +562,7 @@ public class GameEngine {
                 tank.increaseAngle();
             } else if (code == KeyCode.S) {
                 tank.decreaseAngle();
-            } else if (code == KeyCode.SPACE) {
+            } else if (code == KeyCode.R) {
                 boolean isNuke = currentPlayer.hasNukeAvailable() && pressedKeys.contains(KeyCode.SHIFT);
                 fireProjectile(tank.getAngle(), tank.getPower(), isNuke);
                 if (isNuke) {
@@ -323,16 +570,15 @@ public class GameEngine {
                 }
             }
         } else {
-            // Right tank controls: Arrow keys for move/angle, P to fire
-            if (code == KeyCode.LEFT) {
+            if (code == KeyCode.J) {
                 tank.moveLeft();
                 terrain.adjustTankToTerrain(tank);
-            } else if (code == KeyCode.RIGHT) {
+            } else if (code == KeyCode.L) {
                 tank.moveRight();
                 terrain.adjustTankToTerrain(tank);
-            } else if (code == KeyCode.UP) {
+            } else if (code == KeyCode.I) {
                 tank.increaseAngle();
-            } else if (code == KeyCode.DOWN) {
+            } else if (code == KeyCode.K) {
                 tank.decreaseAngle();
             } else if (code == KeyCode.P) {
                 boolean isNuke = currentPlayer.hasNukeAvailable() && pressedKeys.contains(KeyCode.SHIFT);
@@ -368,9 +614,11 @@ public class GameEngine {
     }
     
     private void render() {
-        // Render game elements
-        renderer.render(players, activeProjectile, terrain);
-        
+        Integer overlayShooter = (activeProjectile != null && activeProjectile.isActive())
+                ? shooterPlayerIndexWhenFired : null;
+        renderer.render(players, activeProjectile, terrain, overlayShooter, explosionManager);
+        updateTelemetrySidebar();
+
         // Render UI info
         if (!gameOver) {
             Player currentPlayer = getCurrentPlayer();
@@ -403,9 +651,6 @@ public class GameEngine {
         if (physicsEngine != null) physicsEngine.setGravity(gravity);
     }
 
-    /**
-     * Set the power value for all tanks (used by GameApp to apply a constant power).
-     */
     public void setPowerForAll(double power) {
         for (Player p : players) {
             if (p != null && p.getTank() != null) {

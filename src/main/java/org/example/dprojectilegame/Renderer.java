@@ -8,9 +8,9 @@ import javafx.scene.text.Font;
 
 import java.io.File;
 
-/**
- * Boundary class responsible for rendering all game elements.
- */
+import static java.lang.Math.*;
+
+
 public class Renderer {
     private Canvas canvas;
     private GraphicsContext graphics;
@@ -18,6 +18,15 @@ public class Renderer {
     
     private static final double CANVAS_WIDTH = 1200;
     private static final double CANVAS_HEIGHT = 700;
+
+    private static final Color VELOCITY_COLOR_LEFT = Color.web("#FF69B4");
+    private static final Color VELOCITY_COLOR_RIGHT = Color.web("#9B59B6");
+    /** Drawn oval diameter = 2 × visualRadius × this (independent of arrow geometry). */
+    private static final double PROJECTILE_VISUAL_DIAMETER_FACTOR = 0.4;
+    /** Arrow lengths follow velocity × these factors only — not {@link Projectile#getVisualRadius()}. */
+    private static final double VELOCITY_ARROW_SCALE_COMPONENT = 0.75;
+    private static final double VELOCITY_ARROW_SCALE_RESULTANT = 0.75;
+    private static final double ARROW_HEAD_SIZE = 10.0;
     
     public Renderer(Canvas canvas) {
         this.canvas = canvas;
@@ -38,11 +47,12 @@ public class Renderer {
             System.err.println("Error loading background: " + e.getMessage());
         }
     }
-    
+
     /**
-     * Main render method that draws all game elements.
+     * Full frame: background, terrain, tanks, projectile, velocity overlay, explosions (above tanks), HUD.
      */
-    public void render(Player[] players, Projectile projectile, Terrain terrain) {
+    public void render(Player[] players, Projectile projectile, Terrain terrain,
+                       Integer activeShooterPlayerIndex, ExplosionManager explosionManager) {
         clearScreen();
         
         // Draw background
@@ -53,21 +63,28 @@ public class Renderer {
             graphics.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         }
         
-        // Draw terrain
         drawTerrain(terrain);
         
-        // Draw tanks
         for (Player player : players) {
             if (player != null && player.getTank() != null) {
                 drawTank(player.getTank());
             }
         }
         
-        // Draw projectile
         if (projectile != null && projectile.isActive()) {
             drawProjectile(projectile);
         }
-        
+
+        // Velocity vectors + angle labels (only while projectile active)
+        if (projectile != null && projectile.isActive() && activeShooterPlayerIndex != null) {
+            boolean shooterIsLeft = players[activeShooterPlayerIndex].getTank().isLeftTank();
+            Color velColor = shooterIsLeft ? VELOCITY_COLOR_LEFT : VELOCITY_COLOR_RIGHT;
+            drawProjectileVelocityOverlay(projectile, velColor);
+            drawTankVelocityAngleLabels(players, projectile.getVx(), projectile.getVy());
+        }
+
+        explosionManager.render(graphics);
+
         // Draw UI elements
         for (Player player : players) {
             if (player != null && player.getTank() != null) {
@@ -75,15 +92,90 @@ public class Renderer {
             }
         }
     }
+
+    private void drawProjectileVelocityOverlay(Projectile p, Color color) {
+        // Origin at center of drawn ball (same geometry as fillOval in drawProjectile)
+        double cx = projectileVisualCenterX(p);
+        double cy = projectileVisualCenterY(p);
+        double vx = p.getVx();
+        double vy = p.getVy();
+
+        graphics.setLineWidth(2.0);
+
+        // Vx: horizontal from ball center
+        double vxLen = vx * VELOCITY_ARROW_SCALE_COMPONENT;
+        drawArrowLine(cx, cy, cx + vxLen, cy, color, ARROW_HEAD_SIZE);
+
+        // Vy: vertical (screen y down = positive vy)
+        double vyLen = vy * VELOCITY_ARROW_SCALE_COMPONENT;
+        drawArrowLine(cx, cy, cx, cy + vyLen, color, ARROW_HEAD_SIZE);
+
+        // Resultant V
+        double vMag = hypot(vx, vy);
+        if (vMag > 1e-6) {
+            double scale = VELOCITY_ARROW_SCALE_RESULTANT;
+            double ex = cx + vx * scale;
+            double ey = cy + vy * scale;
+            drawArrowLine(cx, cy, ex, ey, color, ARROW_HEAD_SIZE);
+        }
+    }
+
+    /*so the arrow are the the */
+    /** Projectile {@code (x,y)} is the shell center; matches centered {@link #drawProjectile}. */
+    private static double projectileVisualCenterX(Projectile p) {
+        return p.getX();
+    }
+
+    private static double projectileVisualCenterY(Projectile p) {
+        return p.getY();
+    }
+
+    private void drawTankVelocityAngleLabels(Player[] players, double vx, double vy) {
+        double angleDeg = Math.toDegrees(Math.atan2(vy, vx));
+        graphics.setFont(Font.font(14));
+        for (Player player : players) {
+            if (player == null || player.getTank() == null) continue;
+            Tank t = player.getTank();
+            Color c = t.isLeftTank() ? VELOCITY_COLOR_LEFT : VELOCITY_COLOR_RIGHT;
+            graphics.setFill(c);
+            String text = String.format("V: %.1f°", angleDeg);
+            double tx = t.getX() + t.getWidth() / 2 - 28;
+            double ty = t.getY() - 8;
+            graphics.fillText(text, tx, ty);
+        }
+    }
+
+    private void drawArrowLine(double x0, double y0, double x1, double y1, Color color, double headLen) {
+        double dx = x1 - x0;
+        double dy = y1 - y0;
+        if (hypot(dx, dy) < 0.5) return;
+
+        graphics.setStroke(color);
+        graphics.setFill(color);
+        graphics.strokeLine(x0, y0, x1, y1);
+
+        double ang = atan2(dy, dx);
+        double hx = x1 - headLen * cos(ang);
+        double hy = y1 - headLen * sin(ang);
+        double wing = headLen * 0.55;
+        double lx = hx + wing * sin(ang);
+        double ly = hy - wing * cos(ang);
+        double rx = hx - wing * sin(ang);
+        double ry = hy + wing * cos(ang);
+
+        double[] xs = { x1, lx, rx };
+        double[] ys = { y1, ly, ry };
+        graphics.fillPolygon(xs, ys, 3);
+    }
     private void clearScreen() {
         graphics.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
     }
     private void drawTerrain(Terrain terrain) {
         graphics.setFill(Color.TRANSPARENT);
-        graphics.setStroke(Color.DARKBLUE.darker());
+        graphics.setStroke(Color.PEACHPUFF);
         graphics.setLineWidth(2);
         
-        double[] heights = terrain.getHeights();
+        double[] heights = terrain.copySurfaceHeightSamples();
         double groundY = terrain.getGroundY();
         double width = terrain.getWidth();
         
@@ -107,6 +199,14 @@ public class Renderer {
     }
     private void drawTank(Tank t) {
         Image tankImage = t.getCurrentImage();
+        double pivotX = t.getX() + t.getWidth() / 2.0;
+        double pivotY = t.getY() + t.getHeight();
+
+        graphics.save();
+        graphics.translate(pivotX, pivotY);
+        graphics.rotate(t.getCanvasBodyRotationDegrees());
+        graphics.translate(-pivotX, -pivotY);
+
         if (tankImage != null) {
             graphics.drawImage(tankImage, t.getX(), t.getY(), t.getWidth(), t.getHeight());
         } else {
@@ -114,11 +214,12 @@ public class Renderer {
             graphics.setFill(t.isLeftTank() ? Color.GREEN : Color.RED);
             graphics.fillRect(t.getX(), t.getY(), t.getWidth(), t.getHeight());
         }
-        
-        // Draw angle indicator
+        graphics.restore();
+
+        // Draw angle indicator (screen-space, not rotated with hull)
         graphics.setFill(Color.WHITE);
         graphics.setFont(Font.font(12));
-        String angleText = String.format("%.0f°", t.getAngle());
+        String angleText = String.format("%d°", t.getDisplayAngleDegrees());
         graphics.fillText(angleText, t.getX(), t.getY() - 5);
     }
     private void drawProjectile(Projectile p) {
@@ -127,10 +228,9 @@ public class Renderer {
         } else {
             graphics.setFill(Color.BLACK);
         }
-        graphics.fillOval(p.getX() - p.getRadius(), 
-                         p.getY() - p.getRadius(),
-                         p.getRadius() * 0.6,
-                         p.getRadius() * 0.6);
+        double r = p.getVisualRadius();
+        double d = 2.0 * r * PROJECTILE_VISUAL_DIAMETER_FACTOR;
+        graphics.fillOval(p.getX() - d / 2.0, p.getY() - d / 2.0, d, d);
     }
     private void drawHealthBar(Tank t) {
         double barWidth = 200;
