@@ -118,8 +118,7 @@ public class Renderer {
         }
     }
 
-    /*so the arrow are the the */
-    /** Projectile {@code (x,y)} is the shell center; matches centered {@link #drawProjectile}. */
+    /*so the arrow are the  */
     private static double projectileVisualCenterX(Projectile p) {
         return p.getX();
     }

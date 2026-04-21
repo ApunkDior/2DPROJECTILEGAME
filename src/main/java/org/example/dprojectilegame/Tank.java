@@ -193,7 +193,6 @@ public class Tank {
         return angle;
     }
     /* Clamps to [-50,0] and snaps to the nearest {@link #CANNON_ANGLE_STEP} degree.*/
-
     public int getDisplayAngleDegrees() {
         return (int) Math.round(angle);
     }

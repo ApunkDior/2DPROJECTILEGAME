@@ -251,6 +251,7 @@ public class GameEngine {
     }
 
     public void fireProjectile(double angle, double power, boolean isNuke) {
+        //it doesnt allow firing if the game has ended
         if (gameOver) return;
         // If there's an active projectile still in flight, can't fire
         if (activeProjectile != null && activeProjectile.isActive()) return;
@@ -261,20 +262,21 @@ public class GameEngine {
         Tank tank = currentPlayer.getTank();
         
         ProjectileType projectileKind = isNuke ? ProjectileType.EXPLOSIVE : ProjectileType.STANDARD;
+        //convert power
         double initialSpeed = power * projectileKind.getInitialSpeedMultiplier() / 100.0;
 
         double[] muzzle = new double[2];
         double[] vel = new double[2];
         tank.getMuzzleWorldPosition(muzzle);
         tank.getLaunchVelocityWorld(angle, initialSpeed, vel);
-
+        //Store initial velocity for the display
         lastLaunchVx0 = vel[0];
         lastLaunchVy0 = vel[1];
-
+        //make the projectile closer to the canon
         activeProjectile = ProjectileType.createProjectileAt(
                 //detects a mismatch between the agent's expeccted librairies and the user's application dependencies
                 muzzle[0], muzzle[1], vel[0], vel[1], tank, projectileKind);
-
+        //reset the graphs
         resetTrajectorySeries();
         appendTrajectorySample(0.0, vel[0], vel[1], muzzle[0], muzzle[1]);
         trajSampleAccum = 0.0;
@@ -289,7 +291,6 @@ public class GameEngine {
     }
 
     //Schedule a delayed switch of turns after a given delay in seconds.
-
     private void scheduleSwitchTurn(double delaySeconds) {
         // Cancel existing pending switch if any
         if (pendingSwitch != null) {
@@ -319,12 +320,15 @@ public class GameEngine {
         checkWinCondition();
     }
 
-
+    //Updates the current acitive porjectile's physic
     private void updateActiveProjectileFlight(double deltaTime) {
+        //Exit if there's no projectile or nothing is happening
         if (activeProjectile == null || !activeProjectile.isActive()) {
             return;
         }
+        //Track total flight time
         flightElapsedTime += deltaTime;
+        // Advance projectile physics (position, velocity,collision)
         physicsUpdater.step(activeProjectile, deltaTime, terrain);
 
         trajSampleAccum += deltaTime;
@@ -456,7 +460,7 @@ public class GameEngine {
         }
     }
 
-    /** Vx/Vy vs time, and parabola: x vs height from bottom. */
+    /* Vx/Vy vs time, and parabola: x vs height from bottom. */
     private void appendTrajectorySample(double timeSec, double vx, double vy, double x, double screenY) {
         if (trajectoryVxSeries != null && trajectoryVySeries != null) {
             trajectoryVxSeries.getData().add(new XYChart.Data<>(timeSec, vx));
@@ -534,7 +538,6 @@ public class GameEngine {
         
         Player currentPlayer = getCurrentPlayer();
         Tank tank = currentPlayer.getTank();
-        // Left: L=left, J=right, I=up, K=down, R=fire. Right: arrows + P.
         if (tank.isLeftTank()) {
             if (code == KeyCode.A) {
                 tank.moveLeft();
@@ -640,7 +643,6 @@ public class GameEngine {
             }
         }
     }
-
     public boolean isGameOver() {
         return gameOver;
     }

@@ -36,6 +36,7 @@ public class Terrain {
         generateTerrain();
     }
 
+    //get the line
     private void generateTerrain() {
         int[] xPoints = terrainControlX;
         double[] yPoints = terrainControlHeight;
@@ -100,20 +101,6 @@ public class Terrain {
 
     public double[] copySurfaceHeightSamples() {
         return Arrays.copyOf(heights, heights.length);
-    }
-
-    public boolean collidesWithTerrain(AxisAlignedBounds bounds) {
-        double minX = Math.max(0, Math.min(bounds.minX(), bounds.maxX()));
-        double maxX = Math.min(width - 1, Math.max(bounds.minX(), bounds.maxX()));
-        int x0 = (int) Math.floor(minX);
-        int x1 = (int) Math.ceil(maxX);
-        for (int xi = x0; xi <= x1; xi++) {
-            double surfaceY = getYAt(xi);
-            if (bounds.maxY() >= surfaceY) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public void destroyTerrain(double impactX, double impactY, double radius) {
