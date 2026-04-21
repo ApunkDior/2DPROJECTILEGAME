@@ -1,12 +1,11 @@
 package org.example.dprojectilegame;
 
 public final class Explosion {
-
-    public static final double TOTAL_DURATION_SEC = 1.5;
+    //I wanted the explosion to be 1.5 seconds which I divided in 3 phases
     private static final double PHASE1_TOTAL_SEC = 0.865;
     private static final double PHASE2_TOTAL_SEC = 0.465;
     private static final double PHASE3_TOTAL_SEC = 0.17;
-
+    //I used 13 picture in a files which created with chatGPT and editied with Photoshop
     private static final int FRAME_COUNT = 13;
 
     private static final double[] FRAME_DURATIONS_SEC = buildFrameDurations();
@@ -27,13 +26,18 @@ public final class Explosion {
         }
         return d;
     }
+    //Stores the explosion's X Position
     private final double anchorX;
+    //Stores the explosion's Y Position
     private final double anchorY;
+    //Stores how large the explosion should be displayed
     private final double displayScaleRadiusPx;
-
+    //Track frame the animation is currently on
     private int frameIndex;
+    //Stores how much time has passed inside the current frames
     private double timer;
 
+    //Contructor
     public Explosion(double anchorX, double anchorY, double displayScaleRadiusPx) {
         this.anchorX = anchorX;
         this.anchorY = anchorY;
@@ -72,17 +76,6 @@ public final class Explosion {
 
     public double getDisplayScaleRadiusPx() {
         return displayScaleRadiusPx;
-    }
-
-    public double getCurrentFrameDurationSec() {
-        if (frameIndex >= FRAME_COUNT) {
-            return 0;
-        }
-        return FRAME_DURATIONS_SEC[frameIndex];
-    }
-
-    public double getTimer() {
-        return timer;
     }
 
     public static int getFrameCount() {

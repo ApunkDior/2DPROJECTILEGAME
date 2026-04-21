@@ -21,9 +21,9 @@ public class Renderer {
 
     private static final Color VELOCITY_COLOR_LEFT = Color.web("#FF69B4");
     private static final Color VELOCITY_COLOR_RIGHT = Color.web("#9B59B6");
-    /** Drawn oval diameter = 2 × visualRadius × this (independent of arrow geometry). */
+    /*Drawn oval diameter = 2 × visualRadius × this (independent of arrow geometry) */
     private static final double PROJECTILE_VISUAL_DIAMETER_FACTOR = 0.4;
-    /** Arrow lengths follow velocity × these factors only — not {@link Projectile#getVisualRadius()}. */
+    /* Arrow lengths follow velocity × these factors only  */
     private static final double VELOCITY_ARROW_SCALE_COMPONENT = 0.75;
     private static final double VELOCITY_ARROW_SCALE_RESULTANT = 0.75;
     private static final double ARROW_HEAD_SIZE = 10.0;
@@ -48,9 +48,7 @@ public class Renderer {
         }
     }
 
-    /**
-     * Full frame: background, terrain, tanks, projectile, velocity overlay, explosions (above tanks), HUD.
-     */
+    /*Full frame: background, terrain, tanks, projectile, velocity overlay, explosions (above tanks), HUD.*/
     public void render(Player[] players, Projectile projectile, Terrain terrain,
                        Integer activeShooterPlayerIndex, ExplosionManager explosionManager) {
         clearScreen();
@@ -210,7 +208,7 @@ public class Renderer {
         if (tankImage != null) {
             graphics.drawImage(tankImage, t.getX(), t.getY(), t.getWidth(), t.getHeight());
         } else {
-            // Fallback: draw simple rectangle
+            // draw simple rectangle
             graphics.setFill(t.isLeftTank() ? Color.GREEN : Color.RED);
             graphics.fillRect(t.getX(), t.getY(), t.getWidth(), t.getHeight());
         }

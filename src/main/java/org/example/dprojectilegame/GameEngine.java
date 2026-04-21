@@ -19,13 +19,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Orchestrates input, world updates, and rendering; delegates physics and terrain to dedicated types.
- */
 public class GameEngine {
+    //Two players stored in the array
     private Player[] players;
     private int currentPlayerIndex;
+    //Bullets that currently in the air
     private Projectile activeProjectile;
+    // systme so for gravity wind , applying physics step, checking collision, explosion animations
     private PhysicsEngine physicsEngine;
     private PhysicsUpdater physicsUpdater;
     private CollisionDetector collisionDetector;
@@ -38,23 +38,24 @@ public class GameEngine {
     private static final double CANVAS_WIDTH = 1200;
     private static final double CANVAS_HEIGHT = 700;
     private static final double TERRAIN_BASE_HEIGHT = 150;
-    
+
+    //Stores currently pressed keys
     private Set<KeyCode> pressedKeys;
     private long lastTime;
-    private boolean hasShotThisTurn; // Prevent multiple shots per turn
+    private boolean hasShotThisTurn; // prevent multiple shots per turn
     private PauseTransition pendingSwitch; // pending delayed switch
 
-    /** Player index (0 or 1) who fired the current projectile; null when none in flight. */
     private Integer shooterPlayerIndexWhenFired;
+    //How long projectile has been flying
     private double flightElapsedTime;
-    /** Next whole second to record (1, 2, …). */
+    /* Next whole second to record (1, 2, …). */
     private int nextWholeSecondToLog;
     private final List<ShotSample> currentFlightSamples = new ArrayList<>();
 
     private Label flightTimerLabel;
     private Label flightTableTitleLabel;
     private Label flightTableBodyLabel;
-    /** Minimal v⃗ᵢ / v⃗f / t text */
+    /* Telemetry is what collect data from remote or inaccessible sources and transmitting */
     private Label telemetryFormulasLabel;
     private XYChart.Series<Number, Number> trajectoryVxSeries;
     private XYChart.Series<Number, Number> trajectoryVySeries;
@@ -62,7 +63,7 @@ public class GameEngine {
     private ImageView telemetryTankIcon;
     private Image telemetryTankImageLeft;
     private Image telemetryTankImageRight;
-    /** Velocity at impact (before deactivate); flight time at impact */
+    /* Velocity at impact (before deactivate); flight time at impact */
     private double lastImpactVx;
     private double lastImpactVy;
     private double lastFlightTimeAtImpact;
@@ -104,19 +105,13 @@ public class GameEngine {
         initializeGame();
     }
 
-    /**
-     * Optional sidebar labels for flight timer and post-shot data table (right panel).
-     * Pass {@code null} for {@code timerLabel} to disable the in-flight time ticker.
-     */
     public void setTelemetrySidebarLabels(Label timerLabel, Label tableTitleLabel, Label tableBodyLabel) {
         this.flightTimerLabel = timerLabel;
         this.flightTableTitleLabel = tableTitleLabel;
         this.flightTableBodyLabel = tableBodyLabel;
     }
 
-    /**
-     * Charts: Vx/Vy vs time, and trajectory parabola (x vs height from bottom); wind/power sliders.
-     */
+    //CREATES BOTH CHARTS
     public void setTelemetryExtension(Label formulasLabel,
                                       LineChart<Number, Number> chartVxVy,
                                       LineChart<Number, Number> chartParabola,
@@ -145,7 +140,7 @@ public class GameEngine {
             NumberAxis py = (NumberAxis) chartParabola.getYAxis();
             px.setLabel("x (px)");
             py.setLabel("Height from bottom (px)");
-            px.setAutoRanging(true);
+            px.setAutoRanging(true);  //enables automatic axis scaling based on data
             py.setAutoRanging(true);
             trajectoryParabolaSeries = new XYChart.Series<>();
             trajectoryParabolaSeries.setName("Path");
@@ -166,16 +161,13 @@ public class GameEngine {
         }
     }
 
-    /**
-     * 0° tank sprites for telemetry (left vs right shooter).
-     */
+    /*0° tank sprites for telemetry (left vs right shooter)*/
     public void setTelemetryTankIcon(ImageView imageView, Image leftTank0Deg, Image rightTank0Deg) {
         this.telemetryTankIcon = imageView;
         this.telemetryTankImageLeft = leftTank0Deg;
         this.telemetryTankImageRight = rightTank0Deg;
     }
 
-    /** Left/Right arrow keys stay reserved for the right tank; do not nudge sliders when focused. */
     private static void blockArrowKeysOnSlider(Slider slider) {
         slider.setFocusTraversable(false);
         slider.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -280,6 +272,7 @@ public class GameEngine {
         lastLaunchVy0 = vel[1];
 
         activeProjectile = ProjectileType.createProjectileAt(
+                //detects a mismatch between the agent's expeccted librairies and the user's application dependencies
                 muzzle[0], muzzle[1], vel[0], vel[1], tank, projectileKind);
 
         resetTrajectorySeries();
@@ -295,9 +288,8 @@ public class GameEngine {
         currentFlightSamples.clear();
     }
 
-    /**
-     * Schedule a delayed switch of turns after a given delay in seconds.
-     */
+    //Schedule a delayed switch of turns after a given delay in seconds.
+
     private void scheduleSwitchTurn(double delaySeconds) {
         // Cancel existing pending switch if any
         if (pendingSwitch != null) {
@@ -315,9 +307,7 @@ public class GameEngine {
         pendingSwitch.play();
     }
     
-    /**
-     * Per-frame orchestration: effects, projectile flight, tank placement, win check.
-     */
+
     public void update(double deltaTime) {
         if (gameOver) {
             return;
@@ -329,13 +319,7 @@ public class GameEngine {
         checkWinCondition();
     }
 
-    /**
-     * Telemetry sampling, physics step, and collisions for the shell in flight.
-     * <p>
-     * End-of-shot rule: a round ends only on <strong>ground impact</strong>, <strong>tank hit</strong>, or
-     * (optional future) explicit timeout — not on canvas edge clipping, so the arc and Vx/Vy telemetry can
-     * continue until a real impact (terrain extends past screen via {@link Terrain#getYAt(double)}).
-     */
+
     private void updateActiveProjectileFlight(double deltaTime) {
         if (activeProjectile == null || !activeProjectile.isActive()) {
             return;
@@ -590,9 +574,7 @@ public class GameEngine {
         }
     }
     
-    /**
-     * Starts the game loop.
-     */
+    //Starts the game loop.
     public void startGameLoop() {
         AnimationTimer gameLoop = new AnimationTimer() {
             @Override

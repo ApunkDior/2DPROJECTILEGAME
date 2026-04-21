@@ -28,17 +28,19 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class GameApp extends Application {
-
+    //size of the entire window
     private static final double WINDOW_WIDTH = 1540;
     private static final double WINDOW_HEIGHT = 800;
+    //size of the game drawing area
     private static final double CANVAS_WIDTH = 1200;
     private static final double CANVAS_HEIGHT = 700;
+    //wind scalar
     private static final double DEFAULT_WIND = 0.0;
     private static final double DEFAULT_POWER = 50.0;
 
     private static final Path MUSIC_DIR =
             Paths.get("/Users/shakinatoussaint/Downloads/Graphics/MUSIC");
-
+    //CSS
     private static final String TXT_MONO = "-fx-text-fill: white; -fx-font-family: monospace; -fx-font-size: 11px;";
     private static final String HDR = "-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;";
     private static final String SUB = "-fx-text-fill: white; -fx-font-size: 12px;";
@@ -54,7 +56,7 @@ public class GameApp extends Application {
             + ".chart-vertical-grid-lines { -fx-stroke: #555555; }"
             + ".chart-horizontal-grid-lines { -fx-stroke: #555555; }"
             + ".default-color0.chart-series-line { -fx-stroke: #cccccc; -fx-stroke-width: 2px; }";
-
+    //Manage Music Playback
     private final BackgroundMusic backgroundMusic = new BackgroundMusic();
 
     @Override
@@ -104,7 +106,8 @@ public class GameApp extends Application {
         powerSlider.setShowTickMarks(true);
         powerSlider.setShowTickLabels(false);
         powerSlider.setBlockIncrement(1);
-        powerSlider.setPrefWidth(200);
+        powerSlider.setPrefWidth(120);
+        powerSlider.setMaxWidth(130);
         powerSlider.setStyle("-fx-control-inner-background: #3a3a3a;");
 
         Label powerValueLabel = new Label(String.format("power = %.0f", powerSlider.getValue()));
@@ -126,9 +129,9 @@ public class GameApp extends Application {
 
         LineChart<Number, Number> chartVxVy = new LineChart<>(trajVxT, trajVxV);
         chartVxVy.setAnimated(false);
-        chartVxVy.setPrefHeight(200);
-        chartVxVy.setMinHeight(160);
-        chartVxVy.setMaxHeight(240);
+        chartVxVy.setPrefHeight(180);
+        chartVxVy.setMinHeight(140);
+        chartVxVy.setMaxHeight(220);
         chartVxVy.setLegendVisible(true);
         chartVxVy.setStyle("-fx-background-color: transparent;" + CHART_VX_VY);
         chartVxVy.setFocusTraversable(false);
@@ -149,9 +152,9 @@ public class GameApp extends Application {
 
         LineChart<Number, Number> chartParabola = new LineChart<>(paraX, paraY);
         chartParabola.setAnimated(false);
-        chartParabola.setPrefHeight(200);
-        chartParabola.setMinHeight(160);
-        chartParabola.setMaxHeight(240);
+        chartParabola.setPrefHeight(180);
+        chartParabola.setMinHeight(140);
+        chartParabola.setMaxHeight(220);
         chartParabola.setLegendVisible(false);
         chartParabola.setStyle("-fx-background-color: transparent;" + CHART_PARA);
         chartParabola.setFocusTraversable(false);
@@ -227,7 +230,6 @@ public class GameApp extends Application {
             return null;
         }
     }
-
     private VBox buildCalibrationPanel(Slider windSlider,
                                        Label windValueLabel,
                                        Slider powerSlider,
@@ -240,45 +242,41 @@ public class GameApp extends Application {
                                        LineChart<Number, Number> chartParabola) {
         VBox panel = new VBox(10);
 
-        Label header = new Label("Wind & power");
+        Label header = new Label("Wind & power :)");
         header.setStyle(HDR);
         panel.getChildren().add(header);
 
         HBox windRow = new HBox(8);
         windRow.setAlignment(Pos.CENTER_LEFT);
-        Label windLbl = new Label("Wind force u:");
+        Label windLbl = new Label("Wind");
         windLbl.setStyle(SUB);
         windRow.getChildren().addAll(windLbl, windSlider, windValueLabel);
         panel.getChildren().add(windRow);
 
         HBox powerRow = new HBox(8);
         powerRow.setAlignment(Pos.CENTER_LEFT);
-        Label powerLbl = new Label("Power:");
+        Label powerLbl = new Label("Power");
         powerLbl.setStyle(SUB);
         powerRow.getChildren().addAll(powerLbl, powerSlider, powerValueLabel);
         panel.getChildren().add(powerRow);
 
-        Label tel = new Label("In-flight / last shot");
+        Label tel = new Label("In-flight + last shot");
         tel.setStyle(HDR);
         panel.getChildren().add(tel);
 
-        VBox textCol = new VBox(6);
-        textCol.getChildren().addAll(flightTableTitleLabel, flightTableBodyLabel, telemetryFormulasLabel);
+        panel.getChildren().add(tankIconView);
 
-        HBox shotRow = new HBox(10);
-        shotRow.setAlignment(Pos.TOP_LEFT);
-        shotRow.getChildren().addAll(tankIconView, textCol);
-        panel.getChildren().add(shotRow);
+        panel.getChildren().addAll(flightTableTitleLabel, flightTableBodyLabel, telemetryFormulasLabel);
 
-        Label capVx = new Label("Vx and Vy vs time");
+        Label capVx = new Label("v⃗x and v⃗y vs time");
         capVx.setStyle(SUB);
-        VBox.setMargin(capVx, new Insets(16, 0, 0, 0));
-        panel.getChildren().addAll(capVx, chartVxVy);
+        panel.getChildren().add(capVx);
+        panel.getChildren().add(chartVxVy);
 
         Label capPara = new Label("Trajectory (parabola, height vs x)");
         capPara.setStyle(SUB);
-        VBox.setMargin(capPara, new Insets(12, 0, 0, 0));
-        panel.getChildren().addAll(capPara, chartParabola);
+        panel.getChildren().add(capPara);
+        panel.getChildren().add(chartParabola);
 
         return panel;
     }

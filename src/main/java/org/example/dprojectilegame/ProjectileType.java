@@ -1,20 +1,15 @@
 package org.example.dprojectilegame;
-
+//we used enum because its data types that used to define a collection of names constants
 public enum ProjectileType {
 
     STANDARD(2.0, 0.3, 0.005, 150.0, 1.0, 1, 2.0, 1.5),
-
-    BOUNCY(2.0, 0.3, 0.005, 150.0, 1.0, 1, 2.0, 1.5),
 
     EXPLOSIVE(4.0, 0.3, 0.005, 150.0, 1.0, 3, 2.0, 3.0);
 
 
     public static final double HITBOX_RADIUS_FRACTION = 0.5;
 
-    /**
-     * Shell draw/hitbox radius vs tank size (smaller on-screen projectile).
-     * Velocity overlay in {@link Renderer} uses fixed scales, not this radius.
-     */
+
     private static final double SHELL_RADIUS_SCALE = 0.16;
 
     private static final double AIR_DENSITY_KG_M3 = 1.225;
@@ -47,8 +42,6 @@ public enum ProjectileType {
     public double getMassKg() {
         return massKg;
     }
-
-
     public double getDragCoefficient() {
         return dragCoefficient;
     }
@@ -90,11 +83,6 @@ public enum ProjectileType {
     public double getVisualRadiusScale() {
         return 1.0;
     }
-
-    /**
-     * Spawns at the given world position and velocity (e.g. from {@link Tank#getMuzzleWorldPosition(double[])}
-     * and {@link Tank#getLaunchVelocityWorld(double, double, double[])}).
-     */
     public static Projectile createProjectileAt(double worldX, double worldY, double vx, double vy,
                                                 Tank tank, ProjectileType type) {
         double tankRadius = Math.max(tank.getWidth(), tank.getHeight()) / 2.0;
@@ -114,7 +102,6 @@ public enum ProjectileType {
         );
     }
 
-    /** @deprecated use {@link #createProjectileAt(double, double, double, double, Tank, ProjectileType)} */
     @Deprecated
     public static Projectile createProjectile(Tank tank, double vx, double vy, ProjectileType type) {
         return createProjectileAt(tank.getCannonTipX(), tank.getCannonTipY(), vx, vy, tank, type);

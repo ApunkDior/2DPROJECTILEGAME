@@ -9,20 +9,18 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-/**
- * Loads fire sprites, spawns {@link Explosion} instances at impact, updates frame timers, renders above world.
- */
 public final class ExplosionManager {
 
     private static final String GRAPHICS_DIR = "/Users/shakinatoussaint/Downloads/Graphics/";
 
     private final List<Explosion> explosions = new ArrayList<>();
+    //
     private final Image[] fireFrames = new Image[Explosion.getFrameCount()];
 
     public ExplosionManager() {
         loadFireFrames();
     }
-
+    //Creates the animation
     private void loadFireFrames() {
         for (int i = 0; i < fireFrames.length; i++) {
             String path = GRAPHICS_DIR + "Fire" + (i + 1) + ".png";
@@ -46,6 +44,7 @@ public final class ExplosionManager {
     }
 
     public void update(double deltaTime) {
+        //enables a container to access elements
         Iterator<Explosion> it = explosions.iterator();
         while (it.hasNext()) {
             Explosion e = it.next();
@@ -83,7 +82,7 @@ public final class ExplosionManager {
             }
             ctx.save();
             ctx.setGlobalAlpha(0.65);
-            ctx.setFill(Color.ORANGE);
+            ctx.setFill(Color.HOTPINK);
             ctx.fillOval(ax - r, ay - 2 * r, 2 * r, 2 * r);
             ctx.restore();
         }

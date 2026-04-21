@@ -10,38 +10,31 @@ public class Tank {
     private double height;
     private int health;
     private double angle; // Cannon angle in degrees
-    /** Smoothed hull rotation (degrees), toward {@link #bodyRotationTargetDegrees}. */
+    /*Rotate the tank*/
     private double bodyRotationDegrees;
-    /** Clamped terrain tangent target (degrees), set each frame from terrain. */
+    /*  set each frame from terrain. */
     private double bodyRotationTargetDegrees;
     private double power; // Power setting for projectile launch
     private boolean isLeftTank;
-    private Image[] angleImages; // Array of images for different angles
+    // Array of images for different angles
+    private Image[] angleImages;
     
     private static final int MAX_HEALTH = 10;
     private static final double MOVEMENT_SPEED = 2.0;
-    /** Cannon elevation step and quantization (matches sprite set 0°,10°,…,50°). */
+    /*elevation calibration*/
     public static final double CANNON_ANGLE_STEP = 10.0;
     private static final double MAX_ANGLE = 50.0;
-    private static final double MIN_ANGLE = -50.0;
+    private static final double MIN_ANGLE = 0.0;
 
-    /**
-     * Positive Y nudge (screen down) so tread artwork meets the terrain line after hull rotation.
-     * Alias: {@link #TREAD_OFFSET_Y}.
-     */
+    /*Positive Y nudge (screen down)*/
     public static final double TREAD_SURFACE_NUDGE_Y = 5.0;
 
-    /** Optional tread vs terrain line offset (pixels); same as {@link #TREAD_SURFACE_NUDGE_Y}. */
+    /*Optional tread vs terrain line offset */
     public static final double TREAD_OFFSET_Y = TREAD_SURFACE_NUDGE_Y;
 
-    /** Interpolation factor per frame toward target (shortest arc). */
     public static final double BODY_ROTATION_SMOOTHING = 0.12;
-    /** Max hull tilt from horizontal after terrain (degrees). */
     public static final double BODY_ROTATION_MAX_TILT_DEG = 60.0;
-    /**
-     * Added to smoothed hull angle for canvas draw on the right tank only (mirrored art).
-     * Default 0 keeps flat ground upright; try 180 only if barrel/sprite basis needs it (may require pivot retune).
-     */
+
     public static final double RIGHT_HULL_DISPLAY_OFFSET_DEG = 0.0;
 
     public Tank(double x, double y, double width, double height, boolean isLeftTank) {
@@ -199,33 +192,16 @@ public class Tank {
     public double getAngle() {
         return angle;
     }
-    /**
-     * Clamps to [-50,50] and snaps to the nearest {@link #CANNON_ANGLE_STEP} degree.
-     */
-    public void setAngle(double angle) {
-        double q = roundToCannonStep(angle);
-        this.angle = Math.max(MIN_ANGLE, Math.min(MAX_ANGLE, q));
-    }
+    /* Clamps to [-50,0] and snaps to the nearest {@link #CANNON_ANGLE_STEP} degree.*/
 
-    /**
-     * @return cannon label value (always a multiple of 10° within [-50,50])
-     */
     public int getDisplayAngleDegrees() {
         return (int) Math.round(angle);
     }
 
-    /**
-     * Extra downward shift (pixels) so the drawn tread meets terrain after {@link #TREAD_SURFACE_NUDGE_Y}.
-     */
     public double getTreadSurfaceNudgeY() {
         return TREAD_OFFSET_Y;
     }
 
-    /**
-     * World-space muzzle position (barrel mouth) using hull rotation and bottom-center pivot.
-     *
-     * @param out length 2: {@code out[0]=x}, {@code out[1]=y}
-     */
     public void getMuzzleWorldPosition(double[] out) {
         double pivotX = x + width / 2.0;
         double pivotY = y + height;

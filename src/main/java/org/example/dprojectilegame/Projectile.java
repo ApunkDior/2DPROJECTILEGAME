@@ -1,9 +1,5 @@
 package org.example.dprojectilegame;
 
-/**
- * Pure projectile state: position, velocity, {@link ProjectileType}, separate visual and hitbox radii, age.
- * Physics is applied only via {@link PhysicsUpdater} / {@link PhysicsEngine}.
- */
 public class Projectile {
 
     private double x;
@@ -79,14 +75,6 @@ public class Projectile {
         return active;
     }
 
-    public void setActive(boolean active) {
-        this.active = active;
-    }
-
-    public double getAgeSec() {
-        return ageSec;
-    }
-
     void addAge(double deltaSeconds) {
         this.ageSec += deltaSeconds;
     }
@@ -123,16 +111,9 @@ public class Projectile {
         this.vy = vy;
     }
 
-    public double getAx() {
-        return ax;
-    }
 
     public void setAx(double ax) {
         this.ax = ax;
-    }
-
-    public double getAy() {
-        return ay;
     }
 
     public void setAy(double ay) {

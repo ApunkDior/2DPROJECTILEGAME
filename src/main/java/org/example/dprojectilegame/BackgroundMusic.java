@@ -16,15 +16,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Playlist UI: scan folder for {@code .mp3}/{@code .wav}, show current title,
- * transport {@code Previous → Stop → Resume → Next}. Starts stopped (no autoplay).
- * <ul>
- *   <li>Natural track end: advances to next file in order (wraps), unless the user had pressed Stop.</li>
- *   <li>Stop: silence until Resume; does not auto-advance.</li>
- *   <li>Previous/Next: change track; if something was playing, new track starts immediately.</li>
- * </ul>
- */
+/*
+* The Background Music :
+* 1. A Path List is created and it reads local files
+* 2. [Previous][Stop][Resume][Next]
+* 3. MediaPlayer: the engine that provides controls for playback, such as play(),
+* stop(),seek(), we use it to be able to transitions from what track to the other
+*/
 public final class BackgroundMusic {
 
     private static final String BTN_STYLE = "-fx-text-fill: white; -fx-background-color: #444444; "
@@ -34,15 +32,16 @@ public final class BackgroundMusic {
     private List<Path> tracks = new ArrayList<>();
     private int index = 0;
     private Label titleLabel;
-    /** When true, {@link MediaPlayer} was stopped by the user — do not auto-advance on end. */
     private boolean userRequestedStop = true;
 
     public BackgroundMusic() {
     }
+/*
+* Build Section: we use setOnAction that will follow a which will follow step track and
+* and can call the music to stop or to play using the stopPlayback() method or the resumePlayback() method
+*
+*/
 
-    /**
-     * @param musicDir directory (created if missing)
-     */
     public VBox buildSection(Path musicDir) throws IOException {
         Files.createDirectories(musicDir);
         tracks = listAudioFiles(musicDir);
@@ -50,6 +49,7 @@ public final class BackgroundMusic {
         titleLabel = new Label();
         titleLabel.setWrapText(true);
         titleLabel.setMaxWidth(300);
+        titleLabel.setStyle("-fx-text-fill: white; -fx-font-size: 11px;");
         updateTitleText();
 
         Button prev = new Button("Previous");
@@ -59,7 +59,7 @@ public final class BackgroundMusic {
         for (Button b : new Button[] { prev, stop, resume, next }) {
             b.setStyle(BTN_STYLE);
         }
-
+        /*Step Track moves forward and backward into the list*/
         prev.setOnAction(e -> stepTrack(-1));
         next.setOnAction(e -> stepTrack(1));
         stop.setOnAction(e -> stopPlayback());
@@ -75,12 +75,12 @@ public final class BackgroundMusic {
 
     private void updateTitleText() {
         if (tracks.isEmpty()) {
-            titleLabel.setText("— (add .mp3 or .wav to folder)");
+            titleLabel.setText(" (add .mp3 or .wav to folder)");
             return;
         }
         titleLabel.setText(tracks.get(index).getFileName().toString());
     }
-
+    /*Creates a index of songs*/
     private void stepTrack(int delta) {
         if (tracks.isEmpty()) {
             return;
@@ -96,17 +96,15 @@ public final class BackgroundMusic {
         }
     }
 
-    /**
-     * Stops playback; user intent is silence until Resume (no auto-advance on future events).
-     */
+    /*the disposePlayerQuiet() method which cleans up and destroys a JAVAFX MediaPlayer
+    instance to free system resources. It checks if the player exists removes the end of mdeia handler
+    to avoid callback, stops the playback which displace unmanaged resources*/
     public void stopPlayback() {
         userRequestedStop = true;
         disposePlayerQuiet();
     }
 
-    /**
-     * Starts or restarts the current track; clears user-stop so natural end can advance the playlist.
-     */
+
     private void resumePlayback() {
         if (tracks.isEmpty()) {
             return;
@@ -125,10 +123,10 @@ public final class BackgroundMusic {
             player.setOnEndOfMedia(this::onTrackEndedNaturally);
             player.play();
         } catch (RuntimeException ex) {
-            System.err.println("Could not play: " + path + " — " + ex.getMessage());
+            System.err.println("Could not play: " + path + "  " + ex.getMessage());
         }
     }
-
+    /*When a track ends,it will play the next title on the index*/
     private void onTrackEndedNaturally() {
         if (userRequestedStop || tracks.isEmpty()) {
             return;
@@ -140,8 +138,11 @@ public final class BackgroundMusic {
 
     private void disposePlayerQuiet() {
         if (player != null) {
+            //Removes any callback/event handler that runs when the media finishes
             player.setOnEndOfMedia(null);
+            //Stops playback immediately
             player.stop();
+            //releases native system resources
             player.dispose();
             player = null;
         }
